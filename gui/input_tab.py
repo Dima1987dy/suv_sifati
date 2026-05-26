@@ -212,6 +212,9 @@ class InputTab:
         self.tree_rec.tag_configure("ok",     background="#D5F5E3")
         self.tree_rec.tag_configure("none",   background=COLORS["bg"])
 
+        # Ikki marta bosish → tahrirlash
+        self.tree_rec.bind("<Double-1>", self._on_edit_record)
+
     # ── Canvas scroll ─────────────────────────
     def _on_frame_configure(self, event=None):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -369,6 +372,123 @@ class InputTab:
     def _clear_entries(self):
         for ent in self.sub_entries.values():
             ent.delete(0, "end")
+
+    def _on_edit_record(self, event=None):
+        """Jadvalda ikki marta bosilganda tahrirlash oynasini ochadi."""
+        sel = self.tree_rec.selection()
+        if not sel:
+            return
+        meas_id = int(sel[0])
+        row = db.get_measurement(meas_id)
+        if not row:
+            return
+        self._open_edit_dialog(meas_id, row)
+
+    def _open_edit_dialog(self, meas_id: int, row) -> None:
+        """Tahrirlash dialog oynasi."""
+        win = tk.Toplevel(self.parent)
+        win.title("✏️  O'lchovni tahrirlash")
+        win.geometry("380x260")
+        win.resizable(False, False)
+        win.configure(bg=COLORS["bg"])
+        win.grab_set()   # modal
+
+        # ── Header ───────────────────────────────
+        hdr = tk.Frame(win, bg=COLORS["sidebar"], height=46)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        tk.Label(hdr, text="✏️  O'lchovni tahrirlash",
+                 bg=COLORS["sidebar"], fg=COLORS["sidebar_text"],
+                 font=("Segoe UI", 11, "bold")).pack(side="left", padx=14, pady=10)
+
+        # ── Ma'lumotlar ───────────────────────────
+        frm = ttk.Frame(win)
+        frm.pack(fill="both", expand=True, padx=18, pady=12)
+
+        def lbl_row(text, value, row_num):
+            ttk.Label(frm, text=text, foreground=COLORS["text_light"],
+                      font=("Segoe UI", 9)).grid(
+                row=row_num, column=0, sticky="w", pady=3)
+            ttk.Label(frm, text=value, font=("Segoe UI", 9, "bold")).grid(
+                row=row_num, column=1, sticky="w", padx=10, pady=3)
+
+        lbl_row("Modda:",  row["sub_name"], 0)
+        lbl_row("MPC:",    f"{row['mpc']} {row['unit']}", 1)
+
+        # ── Sana ─────────────────────────────────
+        ttk.Label(frm, text="Sana:",
+                  foreground=COLORS["text_light"],
+                  font=("Segoe UI", 9)).grid(row=2, column=0, sticky="w", pady=3)
+        ent_date = ttk.Entry(frm, width=16, font=("Segoe UI", 10))
+        ent_date.insert(0, row["sample_date"] or "")
+        ent_date.grid(row=2, column=1, sticky="w", padx=10, pady=3)
+
+        # ── Konsentratsiya ────────────────────────
+        is_ox = bool(row["is_oxygen"])
+        arrow = "↓ (past bo'lsa oshgan)" if is_ox else "↑ (yuqori bo'lsa oshgan)"
+        ttk.Label(frm, text=f"Qiymat ({arrow}):",
+                  foreground=COLORS["text_light"],
+                  font=("Segoe UI", 9)).grid(row=3, column=0, sticky="w", pady=3)
+
+        ent_conc = ttk.Entry(frm, width=16, font=("Segoe UI", 10))
+        cur_val  = row["concentration"]
+        ent_conc.insert(0, str(cur_val) if cur_val is not None else "")
+        ent_conc.grid(row=3, column=1, sticky="w", padx=10, pady=3)
+        ent_conc.focus_set()
+        ent_conc.select_range(0, "end")
+
+        # ── Eslatma ───────────────────────────────
+        ttk.Label(frm, text="Bo'sh qoldirsa — 'aniqlanmagan' saqlanadi.",
+                  foreground=COLORS["text_light"],
+                  font=("Segoe UI", 8)).grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+        # ── Tugmalar ─────────────────────────────
+        bf = ttk.Frame(win)
+        bf.pack(fill="x", padx=18, pady=(0, 14))
+
+        def save():
+            date_str = ent_date.get().strip()
+            val_str  = ent_conc.get().strip()
+
+            # Sana tekshiruv
+            from datetime import datetime as _dt
+            try:
+                _dt.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                messagebox.showwarning("Xato",
+                    "Sana formati noto'g'ri.\nTo'g'ri: YYYY-MM-DD",
+                    parent=win)
+                return
+
+            # Qiymat tekshiruv
+            if val_str == "":
+                conc = None
+            else:
+                try:
+                    conc = float(val_str.replace(",", "."))
+                except ValueError:
+                    messagebox.showwarning("Xato",
+                        f"Noto'g'ri qiymat: '{val_str}'\nFaqat raqam kiriting.",
+                        parent=win)
+                    return
+
+            db.update_measurement(meas_id, conc, date_str)
+            self._load_records()
+            self.refresh_month_indicators()
+            self.app.set_status(
+                f"✅ Yangilandi: {row['sub_name']} | {date_str} | "
+                f"{conc if conc is not None else 'aniqlanmagan'}")
+            win.destroy()
+
+        ttk.Button(bf, text="💾 Saqlash", style="Success.TButton",
+                   command=save).pack(side="left")
+        ttk.Button(bf, text="Bekor qilish",
+                   command=win.destroy).pack(side="left", padx=8)
+
+        # Enter → saqlash, Escape → yopish
+        win.bind("<Return>",  lambda e: save())
+        win.bind("<Escape>",  lambda e: win.destroy())
 
     def _delete_record(self):
         sel = self.tree_rec.selection()

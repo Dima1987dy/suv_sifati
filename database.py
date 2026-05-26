@@ -489,6 +489,31 @@ def get_available_years(project_id: int) -> list[int]:
         return [r["year"] for r in rows]
 
 
+def get_measurement(measurement_id: int) -> Optional[sqlite3.Row]:
+    """Bitta o'lchovni id bo'yicha qaytaradi."""
+    with get_connection() as conn:
+        return conn.execute(
+            """SELECT m.*, s.name as sub_name, s.mpc, s.is_oxygen, s.unit
+               FROM measurements m
+               JOIN substances s ON s.id = m.substance_id
+               WHERE m.id = ?""",
+            (measurement_id,),
+        ).fetchone()
+
+
+def update_measurement(measurement_id: int,
+                       concentration: Optional[float],
+                       sample_date: str) -> None:
+    """O'lchov konsentratsiyasi va sanasini yangilaydi."""
+    with get_connection() as conn:
+        conn.execute(
+            """UPDATE measurements
+               SET concentration=?, sample_date=?
+               WHERE id=?""",
+            (concentration, sample_date, measurement_id),
+        )
+
+
 def delete_measurement(measurement_id: int) -> None:
     with get_connection() as conn:
         conn.execute("DELETE FROM measurements WHERE id = ?", (measurement_id,))
