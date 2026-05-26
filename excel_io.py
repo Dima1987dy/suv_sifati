@@ -387,9 +387,11 @@ def import_from_excel(file_path: str | Path,
     if "Moddalar" in wb.sheetnames:
         _sync_substances_sheet(wb["Moddalar"])
 
-    # ── Shablondan loyiha va punkt nomini o'qish ─────────────────
-    proj_name = ws.cell(row=1, column=2).value
-    stat_name = ws.cell(row=2, column=2).value
+    # ── Shablondan loyiha, punkt va yilni o'qish ─────────────────
+    proj_name  = ws.cell(row=1, column=2).value
+    stat_name  = ws.cell(row=2, column=2).value
+    year_cell  = ws.cell(row=3, column=2).value
+    sheet_year = int(year_cell) if year_cell and str(year_cell).strip().isdigit() else None
 
     if proj_name and str(proj_name).strip():
         project_id = _get_or_create_project(str(proj_name).strip())
@@ -541,6 +543,7 @@ def import_from_excel(file_path: str | Path,
         "project_name": proj["name"] if proj else "—",
         "station_name": stat_info["name"] if stat_info else "—",
         "mpc_updated":  mpc_updated,
+        "year":         sheet_year,
     }
 
 

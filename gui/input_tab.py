@@ -841,6 +841,17 @@ class InputTab:
             msg += f"\n\n⚠️ Xatolar ({len(res['errors'])} ta):\n"
             msg += "\n".join(res["errors"][:5])
 
+        # ── Yil comboboxni Excel faylidan avtomatik o'rnatish ──
+        if res.get("year"):
+            year_str = str(res["year"])
+            vals = list(self.cmb_year["values"])
+            if year_str not in vals:
+                vals.append(year_str)
+                vals.sort()
+                self.cmb_year["values"] = vals
+            self.cmb_year.set(year_str)
+            self.app._current_year = res["year"]
+
         self.on_project_changed()
         self._load_records()
         self.refresh_month_indicators()
