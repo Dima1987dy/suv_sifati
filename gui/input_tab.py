@@ -113,7 +113,7 @@ class InputTab:
                    command=self._save_manual).pack(side="left")
         ttk.Button(bf, text="🔄 Tozalash",
                    command=self._clear_entries).pack(side="left", padx=6)
-        self._btn_calc = ttk.Button(bf, text="⚡ Saqlash va Hisoblash",
+        self._btn_calc = ttk.Button(bf, text="⚡ Yillik hisob",
                                     style="Success.TButton",
                                     command=self._run_calculation)
         self._btn_calc.pack(side="right")
@@ -633,19 +633,22 @@ class InputTab:
                                    parent=self.parent)
             return
 
-        # Formada kiritilgan qiymatlar borligini tekshirib, avto-saqlash
-        # (bu GUI operatsiyasi — asosiy threadda qoladi)
+        # Formada kiritilmagan ma'lumotlar borligini eslatish
         has_input = any(
             ent.get().strip() != ""
             for ent in self.sub_entries.values()
         )
         if has_input:
-            saved = self._save_manual(silent=True)
-            if not saved:
+            if not messagebox.askyesno(
+                "Eslatma",
+                "Formada saqlanmagan qiymatlar bor.\n\n"
+                "Ularni e'tiborsiz qoldirib hisob o'tkazilsinmi?\n"
+                "(Avval '💾 Saqlash' ni bosing — so'ng hisob o'tkazing)",
+                parent=self.parent
+            ):
                 return
-            self._clear_entries()
 
-        # Yil validatsiyasi — messagebox talab qiladi, asosiy threadda
+        # Yil validatsiyasi
         available_years = db.get_available_years(pid)
         if year not in available_years:
             if available_years:
@@ -661,6 +664,22 @@ class InputTab:
                     "Hech qanday o'lchov topilmadi.\n\n"
                     "Avval ma'lumot kiriting, keyin hisob o'tkazing.",
                     parent=self.parent)
+                return
+
+        # Mavjud natijani tekshirish
+        existing = db.get_final_result(pid, year)
+        if existing:
+            monthly_status = db.get_monthly_status(pid, year)
+            filled_months  = sum(1 for v in monthly_status.values() if v > 0)
+            if not messagebox.askyesno(
+                "⚠️  Natija allaqachon mavjud",
+                f"{year} yil uchun natija allaqachon hisoblab saqlangan.\n\n"
+                f"Kiritilgan oylar:  {filled_months} / 12\n"
+                f"Mavjud sinf:       {existing['water_class']} — {existing['class_label']}\n\n"
+                f"Barcha {year} yil o'lchovlari asosida QAYTA hisoblash\n"
+                f"va natijani yangilashni xohlaysizmi?",
+                parent=self.parent
+            ):
                 return
 
         # ── Tugmani bloklash + status ─────────
@@ -731,12 +750,21 @@ class InputTab:
         """Hisob muvaffaqiyatli tugaganda asosiy threadda chaqiriladi."""
         self._btn_calc.config(state="normal")
         self.app.set_status(
-            f"✅ Hisob tugadi: {year} yil | "
+            f"✅ {year} yil yillik hisob tugadi | "
             f"Sinf: {result.water_class} — {result.class_label} | "
             f"SKI: {result.ski:.3f}")
 
-        messagebox.showinfo("✅ Hisob natijalari",
-            f"Yil: {year}\n\n"
+        # Nechta oy ma'lumoti ishlatilganini hisoblash
+        total_measurements = sum(
+            r.ni for r in result.substance_results)
+        avg_per_sub = (total_measurements / result.nj
+                       if result.nj else 0)
+
+        messagebox.showinfo("✅ Yillik hisob natijalari",
+            f"Yil: {year}\n"
+            f"Baholangan moddalar:       {result.nj} ta\n"
+            f"Jami o'lchovlar:           {total_measurements} ta "
+            f"(o'rtacha {avg_per_sub:.0f} ta/modda)\n\n"
             f"Kombinatör indeks (KI):    {result.ki:.2f}\n"
             f"Solishtirma ind. (SKI):    {result.ski:.4f}\n"
             f"Kritik ko'rsatkichlar (F): {result.f_count}\n"
