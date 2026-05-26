@@ -597,18 +597,24 @@ def save_final_result(project_id: int, year: int,
                       ki: float, ski: float, f_count: int,
                       k_reserve: float, water_class: int,
                       class_label: str) -> None:
+    """
+    Yillik yakuniy natijani saqlaydi.
+    SQLite da NULL UNIQUE constraint ishlamaydi (NULL != NULL),
+    shuning uchun ON CONFLICT o'rniga DELETE + INSERT ishlatiladi.
+    """
     with get_connection() as conn:
+        # Avval mavjud natijani o'chiramiz (dublikat oldini olish)
+        conn.execute(
+            """DELETE FROM results
+               WHERE project_id = ? AND year = ? AND substance_id IS NULL""",
+            (project_id, year),
+        )
+        # Yangi natijani yozamiz
         conn.execute(
             """INSERT INTO results
                (project_id, year, substance_id, ki, ski, f_count,
                 k_reserve, water_class, class_label)
-               VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(project_id, year, substance_id)
-               DO UPDATE SET
-                   ki=excluded.ki, ski=excluded.ski,
-                   f_count=excluded.f_count, k_reserve=excluded.k_reserve,
-                   water_class=excluded.water_class,
-                   class_label=excluded.class_label""",
+               VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)""",
             (project_id, year, ki, ski, f_count, k_reserve,
              water_class, class_label),
         )
