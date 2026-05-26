@@ -85,6 +85,29 @@ class InputTab:
         ttk.Label(parent, text="Konsentratsiyalar (mg/dm³):",
                   font=("Segoe UI",9,"bold")).pack(anchor="w", padx=8, pady=(4,2))
 
+        # ── Pastki elementlar AVVAL pack qilinadi (side="bottom") ──
+        # Shundagina canvas ular ustiga chiqmaydi va ko'rinib turadi.
+
+        # Tugmalar
+        bf = ttk.Frame(parent)
+        bf.pack(side="bottom", fill="x", padx=8, pady=6)
+        ttk.Button(bf, text="💾 Saqlash", style="Success.TButton",
+                   command=self._save_manual).pack(side="left")
+        ttk.Button(bf, text="🔄 Tozalash",
+                   command=self._clear_entries).pack(side="left", padx=6)
+        self._btn_calc = ttk.Button(bf, text="⚡ Yillik hisob",
+                                    style="Success.TButton",
+                                    command=self._run_calculation)
+        self._btn_calc.pack(side="right")
+
+        # Oylik holat paneli
+        month_lf = ttk.LabelFrame(parent, text="  📅  Oylik namunalar holati  ")
+        month_lf.pack(side="bottom", fill="x", padx=8, pady=(0,4))
+        self.month_frame = ttk.Frame(month_lf)
+        self.month_frame.pack(fill="x", padx=6, pady=6)
+        self._build_month_indicators()
+
+        # ── Canvas (OXIRGI pack — qolgan joyni egallaydi) ──────────
         canvas_frame = ttk.Frame(parent)
         canvas_frame.pack(fill="both", expand=True, padx=4, pady=2)
 
@@ -105,25 +128,6 @@ class InputTab:
         # Moddalar satrlari
         self.sub_entries: dict[int, ttk.Entry] = {}
         self._build_substance_entries()
-
-        # Tugmalar — BIRINCHI pack qilinadi (pastda doim ko'rinib tursin)
-        bf = ttk.Frame(parent)
-        bf.pack(side="bottom", fill="x", padx=8, pady=6)
-        ttk.Button(bf, text="💾 Saqlash", style="Success.TButton",
-                   command=self._save_manual).pack(side="left")
-        ttk.Button(bf, text="🔄 Tozalash",
-                   command=self._clear_entries).pack(side="left", padx=6)
-        self._btn_calc = ttk.Button(bf, text="⚡ Yillik hisob",
-                                    style="Success.TButton",
-                                    command=self._run_calculation)
-        self._btn_calc.pack(side="right")
-
-        # Oylik holat paneli
-        month_lf = ttk.LabelFrame(parent, text="  📅  Oylik namunalar holati  ")
-        month_lf.pack(side="bottom", fill="x", padx=8, pady=(0,2))
-        self.month_frame = ttk.Frame(month_lf)
-        self.month_frame.pack(fill="x", padx=6, pady=6)
-        self._build_month_indicators()
 
     def _build_substance_entries(self):
         for w in self.sub_frame.winfo_children():
