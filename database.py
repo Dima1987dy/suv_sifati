@@ -478,6 +478,27 @@ def get_measurements(project_id: int, year: int,
             ).fetchall()
 
 
+def get_available_dates(project_id: int, year: int,
+                        station_id: int | None = None) -> list[str]:
+    """Loyiha + yil bo'yicha mavjud sanalar ro'yxatini qaytaradi."""
+    with get_connection() as conn:
+        if station_id:
+            rows = conn.execute(
+                """SELECT DISTINCT sample_date FROM measurements
+                   WHERE project_id=? AND year=? AND station_id=?
+                   ORDER BY sample_date""",
+                (project_id, year, station_id)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT DISTINCT sample_date FROM measurements
+                   WHERE project_id=? AND year=?
+                   ORDER BY sample_date""",
+                (project_id, year)
+            ).fetchall()
+        return [r["sample_date"] for r in rows]
+
+
 def get_available_years(project_id: int) -> list[int]:
     with get_connection() as conn:
         rows = conn.execute(

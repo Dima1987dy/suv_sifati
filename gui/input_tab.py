@@ -163,13 +163,26 @@ class InputTab:
             self.sub_entries[s["id"]] = ent
 
     def _build_records_table(self, parent):
-        # Filter
+        # Filter — 1-qator: Modda va Sana
         ff = ttk.Frame(parent)
         ff.pack(fill="x", padx=6, pady=(6,2))
+
+        # Modda filter
         ttk.Label(ff, text="Modda:").pack(side="left")
-        self.cmb_filter_sub = ttk.Combobox(ff, width=20, state="readonly")
-        self.cmb_filter_sub.pack(side="left", padx=4)
-        self.cmb_filter_sub.bind("<<ComboboxSelected>>", self._load_records)
+        self.cmb_filter_sub = ttk.Combobox(ff, width=18, state="readonly")
+        self.cmb_filter_sub.pack(side="left", padx=(4, 12))
+        self.cmb_filter_sub.bind("<<ComboboxSelected>>", self._on_filter_sub)
+
+        # Sana filter
+        ttk.Label(ff, text="Sana:").pack(side="left")
+        self.cmb_filter_date = ttk.Combobox(ff, width=13, state="readonly")
+        self.cmb_filter_date.pack(side="left", padx=(4, 4))
+        self.cmb_filter_date.bind("<<ComboboxSelected>>", self._on_filter_date)
+
+        # Tozalash tugmasi
+        ttk.Button(ff, text="✕",
+                   width=2,
+                   command=self._clear_filters).pack(side="left", padx=(0, 8))
 
         # O'chirish tugmasi — yil/oy/tanlangan
         del_btn = ttk.Menubutton(ff, text="🗑 O'chirish ▾",
@@ -252,28 +265,69 @@ class InputTab:
         self._load_records()
         self.refresh_month_indicators()
 
+    # ── Filter hodisalari ─────────────────────
+    def _on_filter_sub(self, event=None):
+        """Modda tanlanganda — sana filterni tozalaymiz."""
+        self.cmb_filter_date.set("Barcha sanalar")
+        self._load_records()
+
+    def _on_filter_date(self, event=None):
+        """Sana tanlanganda — modda filterni tozalaymiz."""
+        self.cmb_filter_sub.set("Barcha moddalar")
+        self._load_records()
+
+    def _clear_filters(self):
+        """Ikkala filterni ham tozalash."""
+        self.cmb_filter_sub.set("Barcha moddalar")
+        self.cmb_filter_date.set("Barcha sanalar")
+        self._load_records()
+
     # ── O'lchovlarni yuklash ──────────────────
     def _load_records(self, event=None):
         pid  = self.app.current_project_id
+        sid  = self.app.current_station_id
         year = self._get_year()
         if not pid or not year:
             return
 
-        # Modda filter
         all_subs = db.get_all_substances()
+
+        # Modda combobox ni to'ldirish
         self.cmb_filter_sub["values"] = (
             ["Barcha moddalar"] + [s["name"] for s in all_subs]
         )
         if not self.cmb_filter_sub.get():
             self.cmb_filter_sub.set("Barcha moddalar")
 
+        # Sana combobox ni to'ldirish (DB dan mavjud sanalar)
+        available_dates = db.get_available_dates(pid, year, sid)
+        self.cmb_filter_date["values"] = (
+            ["Barcha sanalar"] + available_dates
+        )
+        if not self.cmb_filter_date.get():
+            self.cmb_filter_date.set("Barcha sanalar")
+
+        # Qaysi filter aktiv?
         filter_name = self.cmb_filter_sub.get()
-        sub_id_filter = None
+        filter_date = self.cmb_filter_date.get()
+
+        sub_id_filter  = None
+        date_filter    = None
+
         if filter_name and filter_name != "Barcha moddalar":
             sub_id_filter = next(
                 (s["id"] for s in all_subs if s["name"] == filter_name), None)
 
+        if filter_date and filter_date != "Barcha sanalar":
+            date_filter = filter_date
+
+        # Ma'lumotlarni olish
         measurements = db.get_measurements(pid, year, sub_id_filter)
+
+        # Sana bo'yicha qo'shimcha filter (xotirada)
+        if date_filter:
+            measurements = [m for m in measurements
+                            if m["sample_date"] == date_filter]
 
         self.tree_rec.delete(*self.tree_rec.get_children())
         sub_dict = {s["id"]: s for s in all_subs}
